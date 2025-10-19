@@ -266,10 +266,8 @@ MIGRATION_004 = [
     """
     ALTER TABLE groups ADD COLUMN last_post TIMESTAMP
     """,
-    # Migrate data from posting_enabled to is_active (if posting_enabled exists)
-    """
-    UPDATE groups SET is_active = posting_enabled WHERE posting_enabled IS NOT NULL
-    """,
+    # Note: Removed UPDATE statement for posting_enabled column
+    # (column doesn't exist in fresh deployments, is_active already has DEFAULT 1)
 ]
 
 # Migration 005: Add missing columns to news_cache table
