@@ -134,9 +134,58 @@ class MigrationManager:
                 logger.debug(f"Migration already applied: {name}")
 
 
-# Migration 001: Initial schema (already exists, but documented here)
+# Migration 001: Initial schema - Base tables
 MIGRATION_001 = [
-    # Already created in database.py
+    # Users table
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        chat_id INTEGER PRIMARY KEY,
+        trader_type TEXT DEFAULT 'investor',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+
+    # Groups table (base version - migrations 004 and 006 will add more columns)
+    """
+    CREATE TABLE IF NOT EXISTS groups (
+        group_id INTEGER PRIMARY KEY,
+        group_name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+
+    # News cache table (base version - migration 005 will add more columns)
+    """
+    CREATE TABLE IF NOT EXISTS news_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        article_url TEXT,
+        title TEXT,
+        summary TEXT,
+        cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+
+    # Command logs table
+    """
+    CREATE TABLE IF NOT EXISTS command_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        chat_id INTEGER,
+        command TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        success BOOLEAN DEFAULT 1,
+        error_message TEXT
+    )
+    """,
+
+    # Indexes for base tables
+    "CREATE INDEX IF NOT EXISTS idx_users_trader_type ON users(trader_type)",
+    "CREATE INDEX IF NOT EXISTS idx_groups_name ON groups(group_name)",
+    "CREATE INDEX IF NOT EXISTS idx_news_cache_url ON news_cache(article_url)",
+    "CREATE INDEX IF NOT EXISTS idx_news_cache_cached ON news_cache(cached_at)",
+    "CREATE INDEX IF NOT EXISTS idx_command_logs_user ON command_logs(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_command_logs_timestamp ON command_logs(timestamp)",
 ]
 
 # Migration 002: Add analytics tables

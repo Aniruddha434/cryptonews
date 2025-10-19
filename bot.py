@@ -6,6 +6,7 @@ Modern UI with inline buttons and enterprise features.
 import logging
 import sys
 import asyncio
+from datetime import datetime, timedelta, time, timezone
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -443,18 +444,17 @@ class EnterpriseBot:
         Background task to run subscription checker daily at 9 AM UTC.
         """
         import asyncio
-        from datetime import datetime, time, timedelta
 
         logger.info("Subscription checker task started")
 
         while True:
             try:
                 # Calculate next run time (9 AM UTC)
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 target_time = time(9, 0)  # 9:00 AM UTC
 
                 # Calculate next occurrence
-                next_run = datetime.combine(now.date(), target_time)
+                next_run = datetime.combine(now.date(), target_time, tzinfo=timezone.utc)
                 if now.time() >= target_time:
                     # If it's already past 9 AM today, schedule for tomorrow
                     next_run += timedelta(days=1)
