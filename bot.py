@@ -490,18 +490,27 @@ class EnterpriseBot:
         
         # Create application
         self.app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-        
+
         # Setup handlers
         self.setup_handlers()
-        
+
         # Add hooks
         self.app.post_init = self.post_startup
         self.app.post_shutdown = self.pre_shutdown
-        
+
         # Start bot
         logger.info("Starting polling...")
         await self.app.initialize()
         await self.app.start()
+
+        # Clear any existing webhooks to prevent conflicts
+        try:
+            logger.info("Clearing any existing webhooks...")
+            await self.app.bot.delete_webhook(drop_pending_updates=True)
+            logger.info("✅ Webhooks cleared successfully")
+        except Exception as e:
+            logger.warning(f"Could not clear webhooks: {e}")
+
         await self.app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
         logger.info("✅ Bot is running! Press Ctrl+C to stop.")
