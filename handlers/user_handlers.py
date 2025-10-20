@@ -2266,6 +2266,16 @@ Once you have your channel ID, use this command:
                 trader_type="investor"  # Default trader type
             )
 
+            # Set creator_user_id for ownership tracking
+            import sqlite3
+            conn = sqlite3.connect('bot_database.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE groups SET creator_user_id = ? WHERE group_id = ?
+            """, (update.effective_user.id, channel_id))
+            conn.commit()
+            conn.close()
+
             # Create subscription
             if self.subscription_service:
                 await self.subscription_service.create_trial_subscription(
