@@ -2269,15 +2269,11 @@ Once you have your channel ID, use this command:
                 trader_type="investor"  # Default trader type
             )
 
-            # Set creator_user_id for ownership tracking
-            import sqlite3
-            conn = sqlite3.connect('bot_database.db')
-            cursor = conn.cursor()
-            cursor.execute("""
+            # Set creator_user_id for ownership tracking using the repository's connection
+            # Use raw SQL through the repository to update creator_user_id
+            await group_repo.execute_query("""
                 UPDATE groups SET creator_user_id = ? WHERE group_id = ?
             """, (update.effective_user.id, channel_id))
-            conn.commit()
-            conn.close()
 
             # Create subscription
             if self.subscription_service:
@@ -2351,26 +2347,18 @@ The bot will now automatically post important crypto news to your channel!
 
             user_id = update.effective_user.id
 
-            # Get all groups/channels created by this user
+            # Get all groups/channels created by this user using the repository
             group_repo = self.user_service.group_repo
 
-            # Query groups by creator_user_id using the repository's db connection
-            import sqlite3
-            conn = sqlite3.connect('bot_database.db')
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-
-            cursor.execute("""
+            # Query groups by creator_user_id using the repository's connection
+            channels = await group_repo.execute_query("""
                 SELECT g.group_id, g.group_name, g.subscription_status, g.is_active,
                        s.subscription_end_date, s.trial_end_date
                 FROM groups g
                 LEFT JOIN subscriptions s ON g.group_id = s.group_id
                 WHERE g.creator_user_id = ?
                 ORDER BY g.created_at DESC
-            """, (user_id,))
-
-            channels = cursor.fetchall()
-            conn.close()
+            """, (user_id,), fetch_all=True)
 
             if not channels:
                 message = """
@@ -2608,20 +2596,13 @@ The bot is actively monitoring and posting news to your channel.
             # Verify ownership (check if user is the creator)
             user_id = update.effective_user.id
 
-            # Query to check ownership
-            import sqlite3
-            conn = sqlite3.connect('bot_database.db')
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-
-            cursor.execute("""
+            # Query to check ownership using the repository
+            group_repo = self.user_service.group_repo
+            result = await group_repo.execute_query("""
                 SELECT creator_user_id FROM groups WHERE group_id = ?
-            """, (channel_id,))
+            """, (channel_id,), fetch_one=True)
 
-            result = cursor.fetchone()
-            conn.close()
-
-            if not result or result['creator_user_id'] != user_id:
+            if not result or result.get('creator_user_id') != user_id:
                 await update.message.reply_text(
                     "❌ **Access Denied**\n\n"
                     "You can only renew channels that you own.\n\n"
@@ -2754,19 +2735,14 @@ The bot is actively monitoring and posting news to your channel.
             # Verify ownership
             user_id = update.effective_user.id
 
-            import sqlite3
-            conn = sqlite3.connect('bot_database.db')
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            # Use repository connection
+            group_repo = self.user_service.group_repo
 
-            cursor.execute("""
+            result = await group_repo.execute_query("""
                 SELECT group_name, creator_user_id FROM groups WHERE group_id = ?
-            """, (channel_id,))
-
-            result = cursor.fetchone()
+            """, (channel_id,), fetch_one=True)
 
             if not result:
-                conn.close()
                 await update.message.reply_text(
                     f"❌ **Channel Not Found**\n\n"
                     f"Channel ID `{channel_id}` is not registered.\n\n"
@@ -2775,12 +2751,11 @@ The bot is actively monitoring and posting news to your channel.
                 )
                 return
 
-            channel_name = result['group_name']
-            creator_id = result['creator_user_id']
+            channel_name = result.get('group_name')
+            creator_id = result.get('creator_user_id')
 
             # Allow deletion if creator_user_id is NULL (old channels) or matches user
             if creator_id is not None and creator_id != user_id:
-                conn.close()
                 await update.message.reply_text(
                     "❌ **Access Denied**\n\n"
                     "You can only delete channels that you own.\n\n"
@@ -2790,13 +2765,10 @@ The bot is actively monitoring and posting news to your channel.
                 return
 
             # Delete from groups table
-            cursor.execute("DELETE FROM groups WHERE group_id = ?", (channel_id,))
+            await group_repo.execute_query("DELETE FROM groups WHERE group_id = ?", (channel_id,))
 
             # Delete from subscriptions table
-            cursor.execute("DELETE FROM subscriptions WHERE group_id = ?", (channel_id,))
-
-            conn.commit()
-            conn.close()
+            await group_repo.execute_query("DELETE FROM subscriptions WHERE group_id = ?", (channel_id,))
 
             await update.message.reply_text(
                 f"✅ **Channel Deleted Successfully**\n\n"
