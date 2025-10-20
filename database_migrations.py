@@ -415,6 +415,10 @@ MIGRATION_006 = [
     """
     ALTER TABLE groups ADD COLUMN trial_ends_at TIMESTAMP
     """,
+    # Add creator_user_id column to track channel ownership
+    """
+    ALTER TABLE groups ADD COLUMN creator_user_id INTEGER
+    """,
 ]
 
 

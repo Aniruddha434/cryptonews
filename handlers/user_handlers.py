@@ -2478,9 +2478,15 @@ You haven't registered any channels yet.
                 # Build status message
                 from datetime import datetime
 
-                subscription_status = status['subscription_status']
-                is_trial = status['is_trial']
-                days_remaining = status['days_remaining']
+                subscription_status = status.get('status', 'unknown')
+                is_trial = subscription_status == 'trial'
+
+                # Calculate days remaining
+                if is_trial:
+                    days_remaining = status.get('trial_days_left', 0)
+                else:
+                    days_remaining = status.get('subscription_days_left', 0)
+
                 posting_allowed = status['posting_allowed']
 
                 status_emoji = "✅" if posting_allowed else "❌"
