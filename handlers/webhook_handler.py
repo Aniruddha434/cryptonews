@@ -339,4 +339,3 @@ async def shutdown_webhook_server(runner):
         logger.info("✅ Webhook server shutdown complete")
     except Exception as e:
         logger.error(f"Error shutting down webhook server: {e}", exc_info=True)
-
