@@ -231,6 +231,7 @@ class EnterpriseBot:
         self.app.add_handler(CommandHandler("registerchannel", self.user_handlers.handle_register_channel))
         self.app.add_handler(CommandHandler("mychannels", self.user_handlers.handle_my_channels))
         self.app.add_handler(CommandHandler("channelstatus", self.user_handlers.handle_channel_status))
+        self.app.add_handler(CommandHandler("renewchannel", self.user_handlers.handle_renew_channel))
 
         # Admin commands
         self.app.add_handler(CommandHandler("setup", self.admin_handlers.handle_setup))

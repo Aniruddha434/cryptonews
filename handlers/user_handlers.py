@@ -160,6 +160,9 @@ Ready to supercharge your Telegram group with instant crypto intelligence?
 /channelstatus <id> - Check channel status
    _View subscription and posting status_
 
+/renewchannel <id> - Renew channel subscription
+   _Generate payment invoice for channel renewal_
+
 ━━━━━━━━━━━━━━━━━━━━━━
 
 **⚙️ Group Management Commands:**
@@ -2506,12 +2509,13 @@ You haven't registered any channels yet.
 """
 
                 if not posting_allowed:
-                    message += """
+                    message += f"""
 ⚠️ **Action Required**
 
 Your subscription has expired. To resume posting:
-• Use /renew in your channel (if it's a group)
-• Or contact support for assistance
+
+Use this command to renew:
+`/renewchannel {channel_id}`
 
 ━━━━━━━━━━━━━━━━━━━━━━
 """
@@ -2530,6 +2534,172 @@ The bot is actively monitoring and posting news to your channel.
             logger.error(f"Error in handle_channel_status: {e}", exc_info=True)
             await update.message.reply_text(
                 "❌ An error occurred while checking channel status. Please try again later."
+            )
+
+    async def handle_renew_channel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /renewchannel command - Renew channel subscription (private chat only)."""
+
+        try:
+            # Must be in private chat
+            if update.effective_chat.type != 'private':
+                await update.message.reply_text(
+                    "⚠️ This command only works in **private chat** with the bot.\n\n"
+                    "Please message me directly.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Check if services are available
+            if not self.subscription_service or not self.payment_service:
+                await update.message.reply_text(
+                    "❌ Payment service is not available.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Check arguments
+            if not context.args:
+                await update.message.reply_text(
+                    "❌ **Missing channel ID**\n\n"
+                    "**Usage:**\n"
+                    "`/renewchannel <channel_id>`\n\n"
+                    "**Example:**\n"
+                    "`/renewchannel -1001234567890`\n\n"
+                    "💡 Use /mychannels to see all your channel IDs",
+                    parse_mode='Markdown'
+                )
+                return
+
+            try:
+                channel_id = int(context.args[0])
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ **Invalid channel ID**\n\n"
+                    "Channel ID must be a number.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Get subscription
+            subscription = await self.subscription_service.get_subscription(channel_id)
+
+            if not subscription:
+                await update.message.reply_text(
+                    f"❌ **Channel Not Found**\n\n"
+                    f"Channel ID `{channel_id}` is not registered.\n\n"
+                    f"Use /mychannels to see your registered channels.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Verify ownership (check if user is the creator)
+            user_id = update.effective_user.id
+
+            # Query to check ownership
+            import sqlite3
+            conn = sqlite3.connect('bot_database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT creator_user_id FROM groups WHERE group_id = ?
+            """, (channel_id,))
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if not result or result['creator_user_id'] != user_id:
+                await update.message.reply_text(
+                    "❌ **Access Denied**\n\n"
+                    "You can only renew channels that you own.\n\n"
+                    "Use /mychannels to see your channels.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Show renewal options with currency selection
+            message = f"""
+💳 **Renew Channel Subscription**
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Channel ID:** `{channel_id}`
+**Plan:** Monthly Subscription
+**Price:** $15.00 USD/month
+
+**What you get:**
+• 24/7 real-time crypto news
+• AI-powered market analysis
+• Multi-source aggregation
+• Trader-specific insights
+• Priority support
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+**Choose your payment method:**
+            """
+
+            # Get available currencies
+            currencies = await self.payment_service.get_available_currencies()
+
+            # Create currency buttons (2 per row)
+            keyboard = []
+            row = []
+
+            currency_labels = {
+                'btc': '₿ Bitcoin',
+                'eth': 'Ξ Ethereum',
+                'usdt': '₮ USDT',
+                'usdc': '$ USDC',
+                'bnb': '🔶 BNB',
+                'trx': '⚡ TRON'
+            }
+
+            for currency in currencies[:6]:  # Limit to 6 currencies
+                label = currency_labels.get(currency.lower(), currency.upper())
+                row.append(
+                    InlineKeyboardButton(
+                        label,
+                        callback_data=f"pay_{currency}_{subscription['subscription_id']}"
+                    )
+                )
+
+                if len(row) == 2:
+                    keyboard.append(row)
+                    row = []
+
+            if row:  # Add remaining button
+                keyboard.append(row)
+
+            # Add cancel button
+            keyboard.append([
+                InlineKeyboardButton(
+                    "❌ Cancel",
+                    callback_data="cancel_renewal"
+                )
+            ])
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            await update.message.reply_text(
+                message,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+
+            # Log analytics
+            if self.analytics_service:
+                await self.analytics_service.log_command(
+                    update.effective_user.id,
+                    "renew_channel",
+                    {"channel_id": channel_id, "subscription_id": subscription['subscription_id']}
+                )
+
+        except Exception as e:
+            logger.error(f"Error in handle_renew_channel: {e}", exc_info=True)
+            await update.message.reply_text(
+                "❌ Error processing renewal request. Please try again later.",
+                parse_mode='Markdown'
             )
 
     async def handle_channel_setup_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
