@@ -508,6 +508,11 @@ class EnterpriseBot:
             logger.info("Clearing any existing webhooks...")
             await self.app.bot.delete_webhook(drop_pending_updates=True)
             logger.info("✅ Webhooks cleared successfully")
+
+            # Wait for any old instances to shut down (deployment race condition fix)
+            logger.info("⏳ Waiting 10 seconds for old instances to terminate...")
+            await asyncio.sleep(10)
+            logger.info("✅ Ready to start polling")
         except Exception as e:
             logger.warning(f"Could not clear webhooks: {e}")
 
