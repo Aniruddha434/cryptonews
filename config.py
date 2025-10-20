@@ -146,4 +146,3 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 # Webhook server port
 # Use Render's PORT env var if available (for web services), otherwise use WEBHOOK_PORT
 WEBHOOK_PORT = int(os.getenv("PORT", os.getenv("WEBHOOK_PORT", "8080")))
-
