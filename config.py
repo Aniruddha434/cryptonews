@@ -144,5 +144,6 @@ PAYMENT_INVOICE_EXPIRATION_MINUTES = int(os.getenv("PAYMENT_INVOICE_EXPIRATION_M
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 
 # Webhook server port
-WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8080"))
+# Use Render's PORT env var if available (for web services), otherwise use WEBHOOK_PORT
+WEBHOOK_PORT = int(os.getenv("PORT", os.getenv("WEBHOOK_PORT", "8080")))
 

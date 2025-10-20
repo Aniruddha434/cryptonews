@@ -148,14 +148,138 @@ class WebhookHandler:
     async def health_check(self, request: web.Request) -> web.Response:
         """
         Health check endpoint.
-        
+
         Args:
             request: aiohttp Request object
-            
+
         Returns:
             aiohttp Response
         """
         return web.Response(status=200, text="OK")
+
+    async def root_handler(self, request: web.Request) -> web.Response:
+        """
+        Root path handler - returns bot status page.
+
+        Args:
+            request: aiohttp Request object
+
+        Returns:
+            aiohttp Response with HTML status page
+        """
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Crypto News Bot - Status</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    border-radius: 20px;
+                    padding: 40px;
+                    max-width: 600px;
+                    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                    border: 1px solid rgba(255, 255, 255, 0.18);
+                }
+                h1 {
+                    margin: 0 0 10px 0;
+                    font-size: 2.5em;
+                }
+                .status {
+                    display: inline-block;
+                    background: #10b981;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                }
+                .info {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                }
+                .info-item {
+                    margin: 10px 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .label {
+                    opacity: 0.8;
+                }
+                .value {
+                    font-weight: bold;
+                }
+                a {
+                    color: #60a5fa;
+                    text-decoration: none;
+                }
+                a:hover {
+                    text-decoration: underline;
+                }
+                .footer {
+                    margin-top: 30px;
+                    opacity: 0.7;
+                    font-size: 0.9em;
+                    text-align: center;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🤖 Crypto News Bot</h1>
+                <div class="status">✅ ONLINE</div>
+
+                <div class="info">
+                    <div class="info-item">
+                        <span class="label">Service:</span>
+                        <span class="value">Telegram Bot</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Mode:</span>
+                        <span class="value">Real-time News (24/7)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Status:</span>
+                        <span class="value">Running</span>
+                    </div>
+                </div>
+
+                <p>This is a Telegram bot service for AI-powered crypto news analysis and distribution.</p>
+
+                <p><strong>Features:</strong></p>
+                <ul>
+                    <li>🔥 Real-time hot news monitoring</li>
+                    <li>🤖 AI-powered market analysis</li>
+                    <li>📊 Multi-group distribution</li>
+                    <li>💳 Subscription management</li>
+                </ul>
+
+                <div class="footer">
+                    <p>Powered by Google Gemini AI & CryptoPanic API</p>
+                    <p><a href="/health">Health Check</a> | <a href="/webhook/payment">Payment Webhook</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return web.Response(text=html, content_type='text/html')
 
 
 async def create_webhook_server(
@@ -181,8 +305,9 @@ async def create_webhook_server(
     
     # Create aiohttp application
     app = web.Application()
-    
+
     # Add routes
+    app.router.add_get('/', handler.root_handler)
     app.router.add_post('/webhook/payment', handler.handle_nowpayments_webhook)
     app.router.add_get('/health', handler.health_check)
     
@@ -195,6 +320,7 @@ async def create_webhook_server(
     await site.start()
     
     logger.info(f"✅ Webhook server started on {host}:{port}")
+    logger.info(f"   - GET  / - Status page")
     logger.info(f"   - POST /webhook/payment - NOWPayments webhook")
     logger.info(f"   - GET  /health - Health check")
     
