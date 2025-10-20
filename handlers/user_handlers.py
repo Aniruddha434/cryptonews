@@ -163,6 +163,9 @@ Ready to supercharge your Telegram group with instant crypto intelligence?
 /renewchannel <id> - Renew channel subscription
    _Generate payment invoice for channel renewal_
 
+/deletechannel <id> - Delete channel registration
+   _Remove channel from your account_
+
 ━━━━━━━━━━━━━━━━━━━━━━
 
 **⚙️ Group Management Commands:**
@@ -2709,6 +2712,113 @@ The bot is actively monitoring and posting news to your channel.
             logger.error(f"Error in handle_renew_channel: {e}", exc_info=True)
             await update.message.reply_text(
                 "❌ Error processing renewal request. Please try again later.",
+                parse_mode='Markdown'
+            )
+
+    async def handle_delete_channel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /deletechannel command - Delete channel registration (private chat only)."""
+
+        try:
+            # Must be in private chat
+            if update.effective_chat.type != 'private':
+                await update.message.reply_text(
+                    "⚠️ This command only works in **private chat** with the bot.\n\n"
+                    "Please message me directly.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Check arguments
+            if not context.args:
+                await update.message.reply_text(
+                    "❌ **Missing channel ID**\n\n"
+                    "**Usage:**\n"
+                    "`/deletechannel <channel_id>`\n\n"
+                    "**Example:**\n"
+                    "`/deletechannel -1001234567890`\n\n"
+                    "💡 Use /mychannels to see all your channel IDs",
+                    parse_mode='Markdown'
+                )
+                return
+
+            try:
+                channel_id = int(context.args[0])
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ **Invalid channel ID**\n\n"
+                    "Channel ID must be a number.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Verify ownership
+            user_id = update.effective_user.id
+
+            import sqlite3
+            conn = sqlite3.connect('bot_database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT group_name, creator_user_id FROM groups WHERE group_id = ?
+            """, (channel_id,))
+
+            result = cursor.fetchone()
+
+            if not result:
+                conn.close()
+                await update.message.reply_text(
+                    f"❌ **Channel Not Found**\n\n"
+                    f"Channel ID `{channel_id}` is not registered.\n\n"
+                    f"Use /mychannels to see your registered channels.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            channel_name = result['group_name']
+            creator_id = result['creator_user_id']
+
+            # Allow deletion if creator_user_id is NULL (old channels) or matches user
+            if creator_id is not None and creator_id != user_id:
+                conn.close()
+                await update.message.reply_text(
+                    "❌ **Access Denied**\n\n"
+                    "You can only delete channels that you own.\n\n"
+                    "Use /mychannels to see your channels.",
+                    parse_mode='Markdown'
+                )
+                return
+
+            # Delete from groups table
+            cursor.execute("DELETE FROM groups WHERE group_id = ?", (channel_id,))
+
+            # Delete from subscriptions table
+            cursor.execute("DELETE FROM subscriptions WHERE group_id = ?", (channel_id,))
+
+            conn.commit()
+            conn.close()
+
+            await update.message.reply_text(
+                f"✅ **Channel Deleted Successfully**\n\n"
+                f"📺 **Channel:** {channel_name}\n"
+                f"🆔 **ID:** `{channel_id}`\n\n"
+                f"The channel has been removed from your account.\n\n"
+                f"💡 You can re-register it anytime with `/registerchannel`",
+                parse_mode='Markdown'
+            )
+
+            # Log analytics
+            if self.analytics_service:
+                await self.analytics_service.log_command(
+                    update.effective_user.id,
+                    "delete_channel",
+                    {"channel_id": channel_id, "channel_name": channel_name}
+                )
+
+        except Exception as e:
+            logger.error(f"Error in handle_delete_channel: {e}", exc_info=True)
+            await update.message.reply_text(
+                "❌ Error deleting channel. Please try again later.",
                 parse_mode='Markdown'
             )
 
